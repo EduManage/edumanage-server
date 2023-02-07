@@ -1,14 +1,17 @@
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const port = process.env.PORT || 5000;
 const app = express();
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 require("dotenv").config();
+var nodemailer = require("nodemailer");
 
 app.use(express.json());
 app.use(cors());
 
 const uri = process.env.URI;
+
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -16,12 +19,8 @@ const client = new MongoClient(uri, {
 });
 
 // Collection
-const Users = client.db("secondHandLaptop").collection("users");
-const Students = client.db("secondHandLaptop").collection("students");
-const Teachers = client.db("secondHandLaptop").collection("teachers");
-const Parents = client.db("secondHandLaptop").collection("parents");
-const Books = client.db("secondHandLaptop").collection("books");
-const Classes = client.db("secondHandLaptop").collection("classes");
+const Users = client.db("Edumanage").collection("users");
+const support = client.db("Edumanage").collection("support");
 
 async function run() {
   try {
@@ -56,6 +55,123 @@ app.post("/createJwtToken", (req, res) => {
       message: "JWT Token Generate Successful",
     });
   }
+});
+
+// get email
+
+app.get("/support", async (req, res) => {
+  const query = {};
+  const result = await support.find(query).toArray();
+  res.send(result);
+});
+// get email
+
+app.get("/support/:id", async (req, res) => {
+  const id = req.params.id;
+  const query = { _id: ObjectId(id) };
+  const result = await support.findOne(query);
+  res.send(result);
+});
+// get email
+
+app.put("/support/:id", async (req, res) => {
+  const id = req.params.id;
+  const filter = { _id: ObjectId(id) };
+  const options = { upsert: true };
+  // create a document that sets the plot of the movie
+  const data = req.body;
+  const update = {
+    $set: {
+      time: data.time,
+      meetLink: data.meetLink,
+      guideEmail: data.guideEmail,
+    },
+  };
+  const result = await support.updateOne(filter, update, options);
+  res.send(result);
+  // sent email
+  const studentData = await support.findOne(filter);
+  const {
+    hostEmail,
+    guideEmail,
+    date,
+    time,
+    meetingCategory,
+    meetingDescription,
+  } = studentData;
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.Email_SEND_EMAIL,
+      pass: process.env.Email_SEND_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: "quselena0@gmail.com",
+    to: hostEmail,
+    cc: guideEmail,
+    subject: `Your Meeting Schedule is ${meetingCategory}`,
+    html: `
+    <div>
+    <h3>Your supporting is ${meetingCategory} on the ${date} at ${time}</h3>
+    <P><bold>Invitee Email:</bold> ${hostEmail}</P>
+    <p>${meetingDescription}</p>
+    <span>Thanks from EduManage</span>
+    </div>
+    `,
+  };
+
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log("Email sent: success");
+    }
+  });
+});
+
+// send email
+app.post("/support", async (req, res) => {
+  const booking = req.body;
+  const { hostEmail, meetingCategory, meetingDescription, date, time } =
+    booking;
+
+  const result = await support.insertOne(booking);
+
+  // email send
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.Email_SEND_EMAIL,
+      pass: process.env.Email_SEND_PASS,
+    },
+  });
+
+  const mailOptions = {
+    from: hostEmail,
+    to: "sa8973634@gmail.com",
+    subject: `Your Meeting Schedule is ${meetingCategory}`,
+    html: `
+    <div>
+    <h3>Your supporting is ${meetingCategory} on the ${date} at ${time}</h3>
+    <P><bold>Invitee Email:</bold> ${hostEmail}</P>
+    <p>${meetingDescription}</p>
+    <span>Thanks from EduManage</span>
+    </div>
+    `,
+  };
+
+  transporter.sendMail(mailOptions, function (error, info) {
+    if (error) {
+      console.log(error);
+    } else {
+      console.log("Email sent: success");
+    }
+  });
+
+  res.send(result);
 });
 
 // Verify JWT Token
@@ -107,7 +223,7 @@ app.put("/users/:email", async (req, res) => {
 });
 
 // Get All User Data
-app.get("/users",  async (req, res) => {
+app.get("/users", async (req, res) => {
   try {
     const query = {};
     const result = await Users.find({}).toArray();
@@ -126,7 +242,7 @@ app.get("/users",  async (req, res) => {
 });
 
 // Added New Students
-app.post("/students",  async (req, res) => {
+app.post("/students", async (req, res) => {
   try {
     const student = req.body;
     const result = await Students.insertOne(student);
@@ -145,32 +261,32 @@ app.post("/students",  async (req, res) => {
 });
 
 // Update Students Data
-app.put("/students/:id",  async (req, res)=>{
-  try{
+app.put("/students/:id", async (req, res) => {
+  try {
     const parent = req.body;
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
-    const option = {upsert: true};
+    const filter = { _id: ObjectId(id) };
+    const option = { upsert: true };
     const updateDoc = {
-      $set: parent
-    }
-    const result = await Students.updateOne(filter, updateDoc, option)
+      $set: parent,
+    };
+    const result = await Students.updateOne(filter, updateDoc, option);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Update Student Successfully!"
-    })
-  }catch(error){
+      message: "Update Student Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail Update Student!"
-    })
+      message: "Fail Update Student!",
+    });
   }
-})
+});
 
 // Get All Students Data
-app.get("/students",   async (req, res) => {
+app.get("/students", async (req, res) => {
   try {
     const query = {};
     const result = await Students.find(query).toArray();
@@ -189,47 +305,47 @@ app.get("/students",   async (req, res) => {
 });
 
 // Find Students Data By Id
-app.get("/students/:id",  async (req, res)=>{
-  try{
+app.get("/students/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Students.find(filter).toArray();
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Find Student Data Successfully!"
-    })
-  }catch(error){
+      message: "Find Student Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to find Student data!"
-    })
+      message: "Fail to find Student data!",
+    });
   }
-})
+});
 
 // Delete Students Data By Id
-app.delete("/students/:id",  async (req, res)=>{
-  try{
+app.delete("/students/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Students.deleteOne(filter);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Delete Student Data Successfully!"
-    })
-  }catch(error){
+      message: "Delete Student Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to Delete Student data!"
-    })
+      message: "Fail to Delete Student data!",
+    });
   }
-})
+});
 
 // Added New Teachers
-app.post("/teachers",  async (req, res) => {
+app.post("/teachers", async (req, res) => {
   try {
     const teacher = req.body;
     const result = await Teachers.insertOne(teacher);
@@ -248,32 +364,32 @@ app.post("/teachers",  async (req, res) => {
 });
 
 // Update Teachers Data
-app.put("/teachers/:id",  async (req, res)=>{
-  try{
+app.put("/teachers/:id", async (req, res) => {
+  try {
     const teacher = req.body;
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
-    const option = {upsert: true};
+    const filter = { _id: ObjectId(id) };
+    const option = { upsert: true };
     const updateDoc = {
-      $set: teacher
-    }
-    const result = await Teachers.updateOne(filter, updateDoc, option)
+      $set: teacher,
+    };
+    const result = await Teachers.updateOne(filter, updateDoc, option);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Update Teacher Successfully!"
-    })
-  }catch(error){
+      message: "Update Teacher Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail Update Teacher!"
-    })
+      message: "Fail Update Teacher!",
+    });
   }
-})
+});
 
 // Get All Teachers Data
-app.get("/teachers",  async (req, res) => {
+app.get("/teachers", async (req, res) => {
   try {
     const query = {};
     const result = await Teachers.find(query).toArray();
@@ -292,47 +408,47 @@ app.get("/teachers",  async (req, res) => {
 });
 
 // Find Teacher Data By Id
-app.get("/teachers/:id",  async (req, res)=>{
-  try{
+app.get("/teachers/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Teachers.find(filter).toArray();
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Find Teacher Data Successfully!"
-    })
-  }catch(error){
+      message: "Find Teacher Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to find Teacher data!"
-    })
+      message: "Fail to find Teacher data!",
+    });
   }
-})
+});
 
 // Delete Teacher Data By Id
-app.delete("/teachers/:id",  async (req, res)=>{
-  try{
+app.delete("/teachers/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Teachers.deleteOne(filter);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Delete Teacher Data Successfully!"
-    })
-  }catch(error){
+      message: "Delete Teacher Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to Delete Teacher data!"
-    })
+      message: "Fail to Delete Teacher data!",
+    });
   }
-})
+});
 
 // Added New Parents
-app.post("/parents",  async (req, res) => {
+app.post("/parents", async (req, res) => {
   try {
     const teacher = req.body;
     const result = await Parents.insertOne(teacher);
@@ -351,72 +467,72 @@ app.post("/parents",  async (req, res) => {
 });
 
 // Update Parents Data
-app.put("/parents/:id",  async (req, res)=>{
-  try{
+app.put("/parents/:id", async (req, res) => {
+  try {
     const parent = req.body;
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
-    const option = {upsert: true};
+    const filter = { _id: ObjectId(id) };
+    const option = { upsert: true };
     const updateDoc = {
-      $set: parent
-    }
-    const result = await Parents.updateOne(filter, updateDoc, option)
+      $set: parent,
+    };
+    const result = await Parents.updateOne(filter, updateDoc, option);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Update Parent Successfully!"
-    })
-  }catch(error){
+      message: "Update Parent Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail Update Parent!"
-    })
+      message: "Fail Update Parent!",
+    });
   }
-})
+});
 
 // Find Parents Data By Id
-app.get("/parents/:id",  async (req, res)=>{
-  try{
+app.get("/parents/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Parents.find(filter).toArray();
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Find Parent Data Successfully!"
-    })
-  }catch(error){
+      message: "Find Parent Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to find Parent data!"
-    })
+      message: "Fail to find Parent data!",
+    });
   }
-})
+});
 
 // Delete Parents Data By Id
-app.delete("/parents/:id",  async (req, res)=>{
-  try{
+app.delete("/parents/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Parents.deleteOne(filter);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Delete Parent Data Successfully!"
-    })
-  }catch(error){
+      message: "Delete Parent Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to Delete Parent data!"
-    })
+      message: "Fail to Delete Parent data!",
+    });
   }
-})
+});
 
 // Get All Parents Data
-app.get("/parents",   async (req, res) => {
+app.get("/parents", async (req, res) => {
   try {
     const query = {};
     const result = await Parents.find(query).toArray();
@@ -435,7 +551,7 @@ app.get("/parents",   async (req, res) => {
 });
 
 // Added New Classes
-app.post("/classes",  async (req, res) => {
+app.post("/classes", async (req, res) => {
   try {
     const classes = req.body;
     const result = await Classes.insertOne(classes);
@@ -454,27 +570,27 @@ app.post("/classes",  async (req, res) => {
 });
 
 // Find Classes Data By Id
-app.get("/classes/:id",  async (req, res)=>{
-  try{
+app.get("/classes/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Classes.find(filter).toArray();
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Find Classes Data Successfully!"
-    })
-  }catch(error){
+      message: "Find Classes Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to find Classes data!"
-    })
+      message: "Fail to find Classes data!",
+    });
   }
-})
+});
 
 // Get All Classes Data
-app.get("/classes",  async (req, res) => {
+app.get("/classes", async (req, res) => {
   try {
     const query = {};
     const result = await Classes.find(query).toArray();
@@ -493,52 +609,52 @@ app.get("/classes",  async (req, res) => {
 });
 
 // Update Classes Data
-app.put("/classes/:id",  async (req, res)=>{
-  try{
+app.put("/classes/:id", async (req, res) => {
+  try {
     const classesBody = req.body;
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
-    const option = {upsert: true};
+    const filter = { _id: ObjectId(id) };
+    const option = { upsert: true };
     const updateDoc = {
-      $set: classesBody
-    }
-    const result = await Classes.updateOne(filter, updateDoc, option)
+      $set: classesBody,
+    };
+    const result = await Classes.updateOne(filter, updateDoc, option);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Update Classes Successfully!"
-    })
-  }catch(error){
+      message: "Update Classes Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail Update Classes!"
-    })
+      message: "Fail Update Classes!",
+    });
   }
-})
+});
 
 // Delete Classes Data By Id
-app.delete("/classes/:id",  async (req, res)=>{
-  try{
+app.delete("/classes/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Classes.deleteOne(filter);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Delete Classes Data Successfully!"
-    })
-  }catch(error){
+      message: "Delete Classes Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to Delete Classes data!"
-    })
+      message: "Fail to Delete Classes data!",
+    });
   }
-})
+});
 
 // Added New Book
-app.post("/books",  async (req, res) => {
+app.post("/books", async (req, res) => {
   try {
     const book = req.body;
     const result = await Books.insertOne(book);
@@ -557,26 +673,26 @@ app.post("/books",  async (req, res) => {
 });
 
 // Find Book Data By Id
-app.get("/books/:id",  async (req, res)=>{
-  try{
+app.get("/books/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Books.find(filter).toArray();
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Find Book Data Successfully!"
-    })
-  }catch(error){
+      message: "Find Book Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to find Book data!"
-    })
+      message: "Fail to find Book data!",
+    });
   }
-})
+});
 // Get All Books Data
-app.get("/books",  async (req, res) => {
+app.get("/books", async (req, res) => {
   try {
     const query = {};
     const result = await Books.find(query).toArray();
@@ -595,50 +711,50 @@ app.get("/books",  async (req, res) => {
 });
 
 // Update Books Data
-app.put("/books/:id",  async (req, res)=>{
-  try{
+app.put("/books/:id", async (req, res) => {
+  try {
     const book = req.body;
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
-    const option = {upsert: true};
+    const filter = { _id: ObjectId(id) };
+    const option = { upsert: true };
     const updateDoc = {
-      $set: book
-    }
-    const result = await Books.updateOne(filter, updateDoc, option)
+      $set: book,
+    };
+    const result = await Books.updateOne(filter, updateDoc, option);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Update Books Successfully!"
-    })
-  }catch(error){
+      message: "Update Books Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail To Update Books!"
-    })
+      message: "Fail To Update Books!",
+    });
   }
-})
+});
 
 // Delete Books Data By Id
-app.delete("/books/:id",  async (req, res)=>{
-  try{
+app.delete("/books/:id", async (req, res) => {
+  try {
     const id = req.params.id;
-    const filter = {_id: ObjectId(id)};
+    const filter = { _id: ObjectId(id) };
     const result = await Books.deleteOne(filter);
     res.send({
-      data: result, 
+      data: result,
       success: true,
-      message: "Delete Book Data Successfully!"
-    })
-  }catch(error){
+      message: "Delete Book Data Successfully!",
+    });
+  } catch (error) {
     res.send({
-      data: error.message, 
+      data: error.message,
       success: false,
-      message: "Fail to Delete Book data!"
-    })
+      message: "Fail to Delete Book data!",
+    });
   }
-})
+});
 
-app.listen(process.env.PORT || 5000, () => {
-  console.log("Server Running SuccessFull Port", process.env.PORT);
+app.listen(port || 5000, () => {
+  console.log("Server Running SuccessFull Port", port);
 });
