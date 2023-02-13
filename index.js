@@ -753,8 +753,27 @@ app.delete("/books/:id", async (req, res) => {
       message: "Fail to Delete Book data!",
     });
   }
-});
+})
 
-app.listen(port || 5000, () => {
-  console.log("Server Running SuccessFull Port", port);
+// Handle 404 Error
+app.use((req, res, next)=>{
+  res.status(404).send("Requested Url Was not found")
+  // next("Requested Url Was not found")
+})
+
+// Handle Error
+app.use((err, req, res, next)=>{
+ if(req.headersSent){
+  next("There Was a problem")
+ }else{
+  if(err.message){
+    res.status(500).send(err.message)
+  }else{
+    res.status(500).send("There was an error");
+  }
+ }
+})
+
+app.listen(port, () => {
+  console.log("Server Running SuccessFull Port ", port);
 });
