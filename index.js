@@ -11,6 +11,7 @@ app.use(express.json());
 app.use(cors());
 
 const uri = process.env.URI;
+console.log(uri);
 
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -21,6 +22,7 @@ const client = new MongoClient(uri, {
 // Collection
 const Users = client.db("Edumanage").collection("users");
 const support = client.db("Edumanage").collection("support");
+const careers = client.db("Edumanage").collection("careers");
 
 async function run() {
   try {
@@ -35,6 +37,35 @@ run();
 app.get("/", async (req, res) => {
   res.send("Done");
 });
+
+app.get("/careers", async (req, res) => {
+  const query = {};
+  const result = await careers.find(query).toArray();
+  res.send(result);
+});
+
+app.get("/jobdetails/:id", async (req, res) => {
+  const joblistItem = req.params.id;
+  console.log(joblistItem);
+  const query = { _id: ObjectId(joblistItem) };
+  const result = await careers.findOne(query);
+  res.send(result);
+});
+// app.get("/jobdetails", async (req, res) => {
+//   const joblistItem = req.params.id;
+//   console.log(joblistItem);
+//   const query = {};
+
+//   const myJobDetails = await joblist.find(query).toArray();
+//   const jobMainDetails = { jobtag: 11 };
+//   const JobDetails = await joblist.find(query).toArray();
+//   myJobDetails.forEach((detail) => {
+//     const jobtest = JobDetails.map((oneJob) => oneJob.job);
+//     console.log(jobtest);
+//     detail = jobtest;
+//   });
+//   res.send(JobDetails);
+// });
 
 // Create Jwt Token
 app.post("/createJwtToken", (req, res) => {
