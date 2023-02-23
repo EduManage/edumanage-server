@@ -67,6 +67,26 @@ app.get("/jobdetails/:id", async (req, res) => {
 //   res.send(JobDetails);
 // });
 
+//Job add Area
+
+app.post("/addjob", async (req, res) => {
+  try {
+    const datajob = req.body;
+    const result = await careers.insertOne(datajob);
+    res.send({
+      data: result,
+      success: true,
+      message: "Added New job Successful",
+    });
+  } catch (error) {
+    res.send({
+      data: error.message,
+      success: false,
+      message: "Fail to Added New job",
+    });
+  }
+});
+
 // Create Jwt Token
 app.post("/createJwtToken", (req, res) => {
   try {
